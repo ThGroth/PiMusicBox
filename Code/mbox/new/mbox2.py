@@ -28,13 +28,16 @@ class LED(object):
 
 class Switch(object):
     """Switch"""
-    def __init__(self,pin_no):
+    def __init__(self,pin_no,bounce=200):
         self._gpio_no_ = pin_no
         GPIO.setup(pin_no,GPIO.IN)
+        self._bounce = _bounce
     def get_state(self):
         if GPIO.input(self._gpio_no_) == GPIO.HIGH:
             return True
         return False
+    def set_callback(self,callbackfunc):
+    	GPIO.add_event_detect(self._gpio_no_, GPIO.BOTH, callback=callbackfunc,bouncetime=self._bounce)  
 
 
 class LCD(object):
@@ -51,10 +54,11 @@ class LCD(object):
         else:
             threading.Timer(self._standby_time-time.time()+1, self.check_light).start()
     def check_light_for_next_song(self,player):
-        if not player.currentsong()['title'] == player.lastSong:
-            player.lastSong = player.currentsong()['title']
-            self._standby_time = time.time()+self._on_time
-            self.write_current_song_title(player)
+    	if player.status()['state']=="play":
+	        if not player.currentsong()['title'] == player.lastSong:
+	            player.lastSong = player.currentsong()['title']
+	            self._standby_time = time.time()+self._on_time
+	            self.write_current_song_title(player)
         threading.Timer(5,lambda: self.check_light_for_next_song(player)).start()
     def set_on_time(self,t):
         self._on_time = t
@@ -132,8 +136,8 @@ GPIO.setmode(GPIO.BOARD)
 LedOn = LED(13)
 #LedPause = LED(11)
 
-SwitchPlaylist = Switch(16)
-SwitchRadio    = Switch(18)
+SwitchPlaylist = Switch(16,400)
+SwitchRadio    = Switch(18,400)
 
 ButtonNextSong  = Switch(12)
 ButtonNextAlbum = Switch(22)
@@ -244,21 +248,10 @@ def next(channel):
 #                    
 LedOn.turn_on();
 ModeChange(0)
+SwitchPlaylist.add_event_detect(ModeChange);
+SwitchRadio.add_event_detect(ModeChange);
 
 
 
-###################### Not Done yet.
 
-
-GP.add_event_detect(buttonplay,GP.BOTH,callback=pause,bouncetime=200)
-GP.add_event_detect(buttonnext,GP.FALLING,callback=next,bouncetime=200)
-try:
-        GP.wait_for_edge(buttonstop, GP.FALLING)
-        print "In end. Der Wert von buttonstop ist:"+str(GP.input(buttonstop))
-        print "stopping"
-        os.system("mpc stop")
-except KeyboardInterrupt:
-        GP.cleanup()
-        os.system("mpc stop")
-GP.cleanup()
 
