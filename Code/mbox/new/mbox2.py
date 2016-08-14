@@ -75,7 +75,7 @@ class LCD(object):
             #scrolled text TODO
             self._lcd.lcd_display_string(text[:20],line)
         else:
-        	text = text+" "*(20-len(text))
+            text = text+" "*(20-len(text))
             self._lcd.lcd_display_string(text,line)
         self._standby_time = time.time()+self._on_time
     def write_current_song_title(self,player):
@@ -89,13 +89,36 @@ class LCD(object):
         display.write_line(album,4)
     def clear_display(self):
         self._lcd.lcd_clear()
+    def clear_line(self,line):
+        self.write_line(" ")
     def standby(self):
         self._lcd.lcd_backlight("off")
     def turn_off(self):
         self.clear_display()
         self._lcd.lcd_backlight("off")
 
-        
+class ShutdownManager(object):
+    """docstring for ShutdownManager"""
+    def __init__(self,player,display,standby_time):
+        self._standby_time = standby_time
+        self._shutdownTimer = threading.Timer(self._standby_time,self.shutdown)
+    def stop_shutdown(self):
+        self._shutdownTimer.cancel()
+    def eventually_shutdown(self):
+        self._shutdownTimer = threading.Timer(self._standby_time,self.shutdown)
+        self._shutdownTimer.start()
+        return time.strftime("%H:%M:%S", time.gmtime(time.time()+self._standby_time)) 
+    def shutdown(self):
+        if self._shutdownTime > 0:
+            self.player.stop()
+            self.player.close()
+            self.display.turn_off()
+            print("Auschalten..")
+            #GPIO.cleanup() If so, then the power LED turns out immidiatly 
+            #os.system("halt");
+            #exit(0) 
+
+
         
 #
 ################## Setup the GPIOs #########################
@@ -133,6 +156,13 @@ player.lastSong = ""
 display = LCD();
 display.check_light_for_next_song(player)
 
+#
+################## Shutdown Manager #########################
+# 
+
+
+SM = ShutdownManager(player,display,10*60)
+
 
 #
 #
@@ -157,9 +187,9 @@ def RadioStationName(song):
 ########## Callback functions for controling the buttons ######
 #
 def ModeChange(channel):
-    global LastMode;
     time.sleep(0.2)
     if SwitchRadio.get_state():
+        SM.stop_shutdown()
         if not player.LastMode == "radio":
             player.load("Radio") #SetupRadioPlaylist() at one time before       
         player.LastMode = "radio"
@@ -172,6 +202,7 @@ def ModeChange(channel):
         display.write_line(RadioStationName(player.currentsong()),1)
         display.write_current_song_title(player)
     elif SwitchPlaylist.get_state():
+        SM.stop_shutdown()
         if not player.LastMode == "playlist":
             player.load("Radio") #SetupRadioPlaylist() at one time before      
         player.LastMode = "playlist"
@@ -182,6 +213,8 @@ def ModeChange(channel):
             player.play()
     else:
         display.center_text("Pause",1)
+        display.clear_line(3)
+        display.write_line("Ausschalten um "+SM.eventually_shutdown(),4);
         player.pause()
 
 def next(channel):
@@ -198,21 +231,13 @@ def next(channel):
         player.repeat(0)
         player.next()
 
-def shutdown(channel):
-	player.stop()
-    player.close()
-    display.turn_off()
-    #GPIO.cleanup() If so, then the power LED turns out immidiatly 
-    os.system("halt");
-    sys.exit(0) 
-
 #
 #    
 ########################  Start  ###########################      
 #            
 #                    
 LedOn.turn_on();
-
+ModeChange(0)
 
 
 
