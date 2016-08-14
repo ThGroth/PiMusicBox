@@ -31,7 +31,7 @@ class Switch(object):
     def __init__(self,pin_no,bounce=200):
         self._gpio_no_ = pin_no
         GPIO.setup(pin_no,GPIO.IN)
-        self._bounce = _bounce
+        self._bounce = bounce
     def get_state(self):
         if GPIO.input(self._gpio_no_) == GPIO.HIGH:
             return True
@@ -198,6 +198,7 @@ def ModeChange(channel):
     	print("Radio Mode")
         SM.stop_shutdown()
         if not player.LastMode == "radio":
+        	print("Reload radio playlist")
             player.load("Radio") #SetupRadioPlaylist() at one time before       
         player.LastMode = "radio"
         display.clear_display()
@@ -248,8 +249,8 @@ def next(channel):
 #                    
 LedOn.turn_on();
 ModeChange(0)
-SwitchPlaylist.add_event_detect(ModeChange);
-SwitchRadio.add_event_detect(ModeChange);
+SwitchPlaylist.set_callback(ModeChange);
+SwitchRadio.set_callback(ModeChange);
 
 
 
