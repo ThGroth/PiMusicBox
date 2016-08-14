@@ -1,0 +1,32 @@
+Input elements:
+
+Button: On (restart if already on)
+Button: Next
+	if radio mode: next radio station
+	if playlist mode: next song
+Button: Next Album
+	if radio mode: --
+	if playlist: next album
+Switch: Pause/Play
+Switch: Radio/Playlist mode
+Poti: Volume
+
+
+[[Shutdown (Automatic if pause for at least 10 Minutes)]]
+
+Output elements:
+LED: Status On,
+LED: Radio,
+
+
+
+=>
+GPIOS
+4 Input
+2 Output
+
+Buttons: 3
+Switches: 2
+LEDS: 2
+
+
