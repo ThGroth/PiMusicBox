@@ -36,8 +36,8 @@ class Switch(object):
         if GPIO.input(self._gpio_no_) == GPIO.HIGH:
             return True
         return False
-    def set_callback(self,callbackfunc):
-        GPIO.add_event_detect(self._gpio_no_, GPIO.BOTH, callback=callbackfunc,bouncetime=self._bounce)  
+    def set_callback(self,callbackfunc,mode=GPIO.BOTH):
+        GPIO.add_event_detect(self._gpio_no_, mode, callback=callbackfunc,bouncetime=self._bounce)  
 
 
 class LCD(object):
@@ -120,6 +120,7 @@ class ShutdownManager(object):
         player.close()
         display.turn_off()
         print("Auschalten..")
+        os._exit()	
         #GPIO.cleanup() If so, then the power LED turns out immidiatly 
         #os.system("halt");
         #exit(0) 
@@ -206,7 +207,10 @@ def ModeChange(channel):
         player.stop()
         player.play()
         time.sleep(0.1)
-        player.lastSong = player.currentsong()['title']
+        if player.currentsong().has_key('title'):
+            player.lastSong = player.currentsong()['title']
+        else:
+        	player.lastSong = ""
         display.write_line(RadioStationName(player.currentsong()),1)
         display.write_current_song_title(player)
     elif SwitchPlaylist.get_state():
@@ -238,9 +242,13 @@ def next(channel):
         #next radio station in playlist. If last then back to first. 
         player.repeat(1)
         player.next()
+        time.sleep(0.1)
+        display.check_light_for_next_song()
     if SwitchPlaylist.get_state():
         player.repeat(0)
         player.next()
+        time.sleep(0.1)
+        display.check_light_for_next_song()
 
 #
 #    
@@ -251,6 +259,8 @@ LedOn.turn_on();
 ModeChange(0)
 SwitchPlaylist.set_callback(ModeChange);
 SwitchRadio.set_callback(ModeChange);
+ButtonNextSong.set_callback(next,GPIO.HIGH);
+
 
 
 
