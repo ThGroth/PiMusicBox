@@ -37,7 +37,7 @@ class Switch(object):
             return True
         return False
     def set_callback(self,callbackfunc):
-    	GPIO.add_event_detect(self._gpio_no_, GPIO.BOTH, callback=callbackfunc,bouncetime=self._bounce)  
+        GPIO.add_event_detect(self._gpio_no_, GPIO.BOTH, callback=callbackfunc,bouncetime=self._bounce)  
 
 
 class LCD(object):
@@ -54,11 +54,11 @@ class LCD(object):
         else:
             threading.Timer(self._standby_time-time.time()+1, self.check_light).start()
     def check_light_for_next_song(self,player):
-    	if player.status()['state']=="play":
-	        if not player.currentsong()['title'] == player.lastSong:
-	            player.lastSong = player.currentsong()['title']
-	            self._standby_time = time.time()+self._on_time
-	            self.write_current_song_title(player)
+        if player.status()['state']=="play":
+            if not player.currentsong()['title'] == player.lastSong:
+                player.lastSong = player.currentsong()['title']
+                self._standby_time = time.time()+self._on_time
+                self.write_current_song_title(player)
         threading.Timer(5,lambda: self.check_light_for_next_song(player)).start()
     def set_on_time(self,t):
         self._on_time = t
@@ -195,10 +195,10 @@ def RadioStationName(song):
 def ModeChange(channel):
     time.sleep(0.2)
     if SwitchRadio.get_state():
-    	print("Radio Mode")
+        print("Radio Mode")
         SM.stop_shutdown()
         if not player.LastMode == "radio":
-        	print("Reload radio playlist")
+            print("Reload radio playlist")
             player.load("Radio") #SetupRadioPlaylist() at one time before       
         player.LastMode = "radio"
         display.clear_display()
@@ -210,7 +210,7 @@ def ModeChange(channel):
         display.write_line(RadioStationName(player.currentsong()),1)
         display.write_current_song_title(player)
     elif SwitchPlaylist.get_state():
-    	print("Playlist Mode")
+        print("Playlist Mode")
         SM.stop_shutdown()
         if not player.LastMode == "playlist":
             player.load("Radio") #SetupRadioPlaylist() at one time before      
@@ -221,12 +221,12 @@ def ModeChange(channel):
         else:
             player.play()
     else:
-    	if not player.status()['state'] == "pause":
-	    	print("Pause Mode")
-	        display.center_text("Pause",1)
-	        display.clear_line(3)
-	        display.write_line("Ausschalten um "+SM.eventually_shutdown(),4);
-	        player.pause()
+        if not player.status()['state'] == "pause":
+            print("Pause Mode")
+            display.center_text("Pause",1)
+            display.clear_line(3)
+            display.write_line("Ausschalten um "+SM.eventually_shutdown(),4);
+            player.pause()
 
 def next(channel):
     time.sleep(0.1)
