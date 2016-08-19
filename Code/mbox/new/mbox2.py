@@ -53,12 +53,13 @@ class LCD(object):
             threading.Timer(self._on_time-1,self.check_light).start()
         else:
             threading.Timer(self._standby_time-time.time()+1, self.check_light).start()
-    def check_light_for_next_song(self,player):
-        if player.status()['state']=="play":
-            if not player.currentsong()['title'] == player.lastSong:
-                player.lastSong = player.currentsong()['title']
-                self._standby_time = time.time()+self._on_time
-                self.write_current_song_title(player)
+    def check_light_for_next_song(self,player,always_on=false):
+        if player.status()['state']=="play" or always_on:
+        	if player.currentsong().has_key('title'):
+	            if always_on or not player.currentsong()['title'] == player.lastSong: 
+	                player.lastSong = player.currentsong()['title']
+	                self._standby_time = time.time()+self._on_time
+	                self.write_current_song_title(player)
         threading.Timer(5,lambda: self.check_light_for_next_song(player)).start()
     def set_on_time(self,t):
         self._on_time = t
@@ -114,15 +115,15 @@ class ShutdownManager(object):
     def eventually_shutdown(self):
         self._shutdownTimer = threading.Timer(self._standby_time,self.shutdown)
         self._shutdownTimer.start()
-        return time.strftime("%H:%M:%S", time.gmtime(time.time()+self._standby_time)) 
+        return time.strftime("%H:%M", time.gmtime(time.time()+self._standby_time)) 
     def shutdown(self):
         player.stop()
         player.close()
         display.turn_off()
         print("Auschalten..")
-        os._exit()	
+        os._exit(0)	
         #GPIO.cleanup() If so, then the power LED turns out immidiatly 
-        #os.system("halt");
+        os.system("halt");
         #exit(0) 
 
 
@@ -141,7 +142,7 @@ SwitchPlaylist = Switch(16,400)
 SwitchRadio    = Switch(18,400)
 
 ButtonNextSong  = Switch(12)
-ButtonNextAlbum = Switch(22)
+ButtonLight = Switch(22)
 
 #
 ################## Setup the player #########################
@@ -195,6 +196,7 @@ def RadioStationName(song):
 #
 def ModeChange(channel):
     time.sleep(0.2)
+    AktualTime = time.strftime("%H:%M:%S", time.gmtime(time.time())) 
     if SwitchRadio.get_state():
         print("Radio Mode")
         SM.stop_shutdown()
@@ -211,10 +213,13 @@ def ModeChange(channel):
             player.lastSong = player.currentsong()['title']
         else:
         	player.lastSong = ""
-        display.write_line(RadioStationName(player.currentsong()),1)
+        stationName = RadioStationName(player.currentsong())
+        #if len(stationName) <= 20-5:
+        #	stationName = stationName+" "*(15-len(stationName))+AktualTime
+        display.write_line(stationName,1)
         display.write_current_song_title(player)
     elif SwitchPlaylist.get_state():
-        print("Playlist Mode")
+    	print("Playlist Mode  ")
         SM.stop_shutdown()
         if not player.LastMode == "playlist":
             player.load("Radio") #SetupRadioPlaylist() at one time before      
@@ -243,13 +248,20 @@ def next(channel):
         player.repeat(1)
         player.next()
         time.sleep(0.1)
-        display.check_light_for_next_song()
+        display.check_light_for_next_song(player)
     if SwitchPlaylist.get_state():
         player.repeat(0)
         player.next()
         time.sleep(0.1)
         display.check_light_for_next_song()
 
+def light(channel):
+    time.sleep(0.05)
+    if not ButtonLight.get_state():
+        #Button not pressed long enoug. So ignore.
+        return
+    display.check_light_for_next_song(player)
+    
 #
 #    
 ########################  Start  ###########################      
@@ -259,7 +271,8 @@ LedOn.turn_on();
 ModeChange(0)
 SwitchPlaylist.set_callback(ModeChange);
 SwitchRadio.set_callback(ModeChange);
-ButtonNextSong.set_callback(next,GPIO.HIGH);
+ButtonNextSong.set_callback(next,GPIO.RISING);
+ButtonLight.set_callback(light,GPIO.RISING);
 
 
 
