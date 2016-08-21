@@ -96,7 +96,7 @@ class lcd:
          print "Unknown State!"
 
    #map the unicode chararacter order to Hitachy code         
-   def umlauts(charord):
+   def umlauts(self,charord):
       #writen by Thorsten Groth
       Hi_Code= {228:225,#ä
       246:239,#ö
