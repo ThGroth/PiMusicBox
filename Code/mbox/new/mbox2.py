@@ -61,7 +61,7 @@ class LCD(object):
                     self._standby_time = time.time()+self._on_time
                     self.write_current_song_title(player)
         except Exception as inst:
-            print("Fehler: "str(type(inst)))
+            print("Fehler: "+str(type(inst)))
         threading.Timer(5,lambda: self.check_light_for_next_song(player)).start()
     def set_on_time(self,t):
         self._on_time = t
