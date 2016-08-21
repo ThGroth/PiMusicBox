@@ -53,7 +53,7 @@ class LCD(object):
             threading.Timer(self._on_time-1,self.check_light).start()
         else:
             threading.Timer(self._standby_time-time.time()+1, self.check_light).start()
-    def check_light_for_next_song(self,player,always_on=false):
+    def check_light_for_next_song(self,player,always_on=False):
         if player.status()['state']=="play" or always_on:
         	if player.currentsong().has_key('title'):
 	            if always_on or not player.currentsong()['title'] == player.lastSong: 
