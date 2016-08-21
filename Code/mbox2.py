@@ -7,6 +7,31 @@ import lcddriver
 import time
 import os
 
+#logfile
+
+class Logger(object):
+    """docstring for Logger"""
+    def __init__(self,fn):
+        self._logfile = open(fn, 'a')
+        self._filename=fn
+        self._printmode = False
+    
+    def log(self,string):
+        self._logfile.write(time.strftime("%d.%m. %H:%M:%S", time.gmtime(time.time()))+string+"\n")
+        self._logfile.close()
+        self._logfile = open(self._filename, 'a')
+
+    def write(self,string):
+        if self._printmode:
+            print(string)
+            return
+        self.log(string)
+    
+    def set_print_mode(self):
+        self._printmode = True
+
+    def set_log_mode(self):
+        self._printmode = False
 
 class LED(object):
     """LED"""
@@ -61,7 +86,7 @@ class LCD(object):
             self._standby_time = time.time()+self._on_time
             self.write_current_song_title(player)
         except Exception as inst:
-            print("Error in \"light_on\": "+str(type(inst)))
+            Log.write("Error in \"light_on\": "+str(type(inst)))
     def check_light_for_next_song(self,player):
         try:
             if player.status()['state']=="play":
@@ -70,7 +95,7 @@ class LCD(object):
                     self._standby_time = time.time()+self._on_time
                     self.write_current_song_title(player)
         except Exception as inst:
-            print("Error in \"check_light_for_next_song\": "+str(type(inst)))
+            Log.write("Error in \"check_light_for_next_song\": "+str(type(inst)))
         threading.Timer(5,lambda: self.check_light_for_next_song(player)).start()
     def set_on_time(self,t):
         self._on_time = t
@@ -110,7 +135,7 @@ class LCD(object):
             album = titleAr[1][titleAr[1].find("[")+1:titleAr[1].find("]")]
             title = titleAr[0]
         if title == "":
-            print("Error in write_current_song_title: Empty title")
+            Log.write("Error in write_current_song_title: Empty title")
         if song.has_key("album"):
             album = song["album"]
         if song.has_key("artist"):
@@ -144,13 +169,16 @@ class ShutdownManager(object):
         player.stop()
         player.close()
         display.turn_off()
-        print("Auschalten..")
+        Log.write("Auschalten..")
         os.system("halt");
         os._exit(0)    
         #GPIO.cleanup() If so, then the power LED turns out immidiatly 
         #exit(0) 
 
 
+Log = Logger('/var/log/PiMusicBox.log')
+#L.set_print_mode()
+Log.set_log_mode()
         
 #
 ################## Setup the GPIOs #########################
@@ -223,10 +251,10 @@ def ModeChange(channel):
     time.sleep(0.2)
     AktualTime = time.strftime("%H:%M:%S", time.gmtime(time.time())) 
     if SwitchRadio.get_state():
-        print("Radio Mode")
+        Log.write("Radio Mode")
         SM.stop_shutdown()
         if not player.LastMode == "radio":
-            print("Reload radio playlist")
+            Log.write("Reload radio playlist")
             player.clear()
             player.load("Radio") #SetupRadioPlaylist() at one time before       
         player.LastMode = "radio"
@@ -245,7 +273,7 @@ def ModeChange(channel):
         display.write_line(stationName,1)
         display.write_current_song_title(player)
     elif SwitchPlaylist.get_state():
-        print("Playlist Mode  ")
+        Log.write("Playlist Mode  ")
         SM.stop_shutdown()
         if not player.LastMode == "playlist":
             Playlists = []
@@ -253,7 +281,7 @@ def ModeChange(channel):
                 if not P['playlist']=="Radio": 
                     Playlists.append(P['playlist'])
             if len(Playlists)==0:
-                print("Error ModeChange: No Playlists")
+                Log.write("Error ModeChange: No Playlists")
                 return
             player.clear()
             player.PlaylistsName = Playlists[0]
@@ -269,7 +297,7 @@ def ModeChange(channel):
         display.write_current_song_title(player)
     else:
         if not player.status()['state'] == "pause":
-            print("Pause Mode")
+            Log.write("Pause Mode")
             display.center_text("Pause",1)
             display.clear_line(3)
             display.write_line("Ausschalten um "+SM.eventually_shutdown(),4);
@@ -304,7 +332,7 @@ def next(channel):
             if not P['playlist']=="Radio": 
                 Playlists.append(P['playlist'])
         if len(Playlists)==0:
-            print("Error ModeChange: No Playlists")
+            Log.write("Error ModeChange: No Playlists")
             return
         player.PlaylistNumber = (player.PlaylistNumber+1) % len(Playlists) 
         player.clear()
@@ -323,6 +351,19 @@ def light(channel):
         #Button not pressed long enoug. So ignore.
         return
     display.light_on(player)
+    time.sleep(1)
+    if not ButtonLight.get_state():
+        #Button not pressed long enoug for restart
+        return
+    #Restart the program
+    Log.write("Restart requested...")
+    display.turn_off()
+    player.stop()
+    GPIO.cleanup()
+    Log.write(str(os.system("service mpd restart")))
+    prog = "/home/pi/PiMusicBox/Code/mbox2.py"
+    os.execl(prog,prog)
+
     
 #
 #    
