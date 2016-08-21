@@ -11,12 +11,16 @@ import os
 
 class Logger(object):
     """docstring for Logger"""
-    def __init__(self,):
-        self._logfile = open(fn, 'w')
+    def __init__(self,fn):
+        self._logfile = open(fn, 'a')
+        self._filename=fn
         self._printmode = False
     
     def log(self,string):
         self._logfile.write(time.strftime("%d.%m. %H:%M:%S", time.gmtime(time.time()))+string+"\n")
+        self._logfile.close()
+        self._logfile = open(self._filename, 'a')
+
 
     def write(self,string):
         if self._printmode:
@@ -175,7 +179,11 @@ class ShutdownManager(object):
 
 Log = Logger('/var/log/PiMusicBox.log')
 #L.set_print_mode()
+<<<<<<< HEAD
 L.set_log_mode()
+=======
+Log.set_log_mode()
+>>>>>>> 5167efa240cd98b16375782f6104f728e3bfc2f0
         
 #
 ################## Setup the GPIOs #########################
@@ -348,6 +356,19 @@ def light(channel):
         #Button not pressed long enoug. So ignore.
         return
     display.light_on(player)
+    time.sleep(1)
+    if not ButtonLight.get_state():
+        #Button not pressed long enoug for restart
+        return
+    #Restart the program
+    Log.write("Restart requested...")
+    display.turn_off()
+    player.stop()
+    GPIO.cleanup()
+    Log.write(str(os.system("service mpd restart")))
+    prog = "/home/pi/PiMusicBox/Code/mbox2.py"
+    os.execl(prog,prog)
+
     
 #
 #    
