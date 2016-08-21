@@ -54,14 +54,14 @@ class LCD(object):
         else:
             threading.Timer(self._standby_time-time.time()+1, self.check_light).start()
     def check_light_for_next_song(self,player,always_on=False):
-    	try:
-        	if player.status()['state']=="play" or always_on:
-	            if always_on or not player.currentsong()['title'] == player.lastSong: 
-	                player.lastSong = player.currentsong()['title']
-	                self._standby_time = time.time()+self._on_time
-	                self.write_current_song_title(player)
-	    except Exception as inst:
-	    	print("Fehler: "str(type(inst)))
+        try:
+            if player.status()['state']=="play" or always_on:
+                if always_on or not player.currentsong()['title'] == player.lastSong: 
+                    player.lastSong = player.currentsong()['title']
+                    self._standby_time = time.time()+self._on_time
+                    self.write_current_song_title(player)
+        except Exception as inst:
+            print("Fehler: "str(type(inst)))
         threading.Timer(5,lambda: self.check_light_for_next_song(player)).start()
     def set_on_time(self,t):
         self._on_time = t
@@ -123,9 +123,9 @@ class ShutdownManager(object):
         player.close()
         display.turn_off()
         print("Auschalten..")
-        os._exit(0)	
-        #GPIO.cleanup() If so, then the power LED turns out immidiatly 
         os.system("halt");
+        os._exit(0)    
+        #GPIO.cleanup() If so, then the power LED turns out immidiatly 
         #exit(0) 
 
 
@@ -150,7 +150,7 @@ ButtonLight = Switch(22)
 ################## Setup the player #########################
 # 
 # 
-player = MPDClient()               
+player = MPDClient(use_unicode=True)               
 player.timeout = 10                
 player.idletimeout = None          
 player.connect("localhost", 6600)  
@@ -214,14 +214,14 @@ def ModeChange(channel):
         if player.currentsong().has_key('title'):
             player.lastSong = player.currentsong()['title']
         else:
-        	player.lastSong = ""
+            player.lastSong = ""
         stationName = RadioStationName(player.currentsong())
         #if len(stationName) <= 20-5:
-        #	stationName = stationName+" "*(15-len(stationName))+AktualTime
+        #    stationName = stationName+" "*(15-len(stationName))+AktualTime
         display.write_line(stationName,1)
         display.write_current_song_title(player)
     elif SwitchPlaylist.get_state():
-    	print("Playlist Mode  ")
+        print("Playlist Mode  ")
         SM.stop_shutdown()
         if not player.LastMode == "playlist":
             player.load("Radio") #SetupRadioPlaylist() at one time before      
