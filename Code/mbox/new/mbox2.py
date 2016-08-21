@@ -54,12 +54,14 @@ class LCD(object):
         else:
             threading.Timer(self._standby_time-time.time()+1, self.check_light).start()
     def check_light_for_next_song(self,player,always_on=False):
-        if player.status()['state']=="play" or always_on:
-        	if player.currentsong().has_key('title'):
+    	try:
+        	if player.status()['state']=="play" or always_on:
 	            if always_on or not player.currentsong()['title'] == player.lastSong: 
 	                player.lastSong = player.currentsong()['title']
 	                self._standby_time = time.time()+self._on_time
 	                self.write_current_song_title(player)
+	    except Exception as inst:
+	    	print("Fehler: "str(type(inst)))
         threading.Timer(5,lambda: self.check_light_for_next_song(player)).start()
     def set_on_time(self,t):
         self._on_time = t
@@ -248,7 +250,8 @@ def next(channel):
         player.repeat(1)
         player.next()
         time.sleep(0.1)
-        display.check_light_for_next_song(player)
+        display.write_line(stationName,1)
+        check_light_for_next_song(player)
     if SwitchPlaylist.get_state():
         player.repeat(0)
         player.next()
@@ -260,7 +263,7 @@ def light(channel):
     if not ButtonLight.get_state():
         #Button not pressed long enoug. So ignore.
         return
-    display.check_light_for_next_song(player)
+    display.check_light_for_next_song(player,True)
     
 #
 #    
