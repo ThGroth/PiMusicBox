@@ -6,6 +6,7 @@ from mpd import MPDClient
 import lcddriver
 import time
 import os
+import sys
 
 #logfile
 
@@ -15,6 +16,8 @@ class Logger(object):
         self._logfile = open(fn, 'a')
         self._filename=fn
         self._printmode = False
+        sys.stdout = self._logfile
+        sys.stderr = self._logfile
     
     def log(self,string):
         self._logfile.write(time.strftime("%d.%m. %H:%M:%S", time.gmtime(time.time()))+string+"\n")
