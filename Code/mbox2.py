@@ -101,7 +101,7 @@ class LCD(object):
         title = ""
         interpret = ""
         album = ""
-        if song.has_key("'title'"):
+        if song.has_key('title'):
             title = song['title']
         titleAr = title.split(" - ")
         if len(titleAr)>1:
