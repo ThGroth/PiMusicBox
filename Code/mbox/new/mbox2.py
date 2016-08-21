@@ -150,7 +150,7 @@ ButtonLight = Switch(22)
 ################## Setup the player #########################
 # 
 # 
-player = MPDClient(use_unicode=True)               
+player = MPDClient()               
 player.timeout = 10                
 player.idletimeout = None          
 player.connect("localhost", 6600)  
@@ -250,6 +250,7 @@ def next(channel):
         player.repeat(1)
         player.next()
         time.sleep(0.1)
+        stationName = RadioStationName(player.currentsong())
         display.write_line(stationName,1)
         check_light_for_next_song(player)
     if SwitchPlaylist.get_state():
