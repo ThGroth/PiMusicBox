@@ -55,15 +55,24 @@ class LCD(object):
             threading.Timer(self._on_time-1,self.check_light).start()
         else:
             threading.Timer(self._standby_time-time.time()+1, self.check_light).start()
-    def check_light_for_next_song(self,player,always_on=False):
+    def light_on(self,player):
         try:
-            if player.status()['state']=="play" or always_on:
-                if always_on or not player.currentsong()['title'] == player.lastSong: 
+            if player.status()['state']=="play":
+                if not player.currentsong()['title'] == player.lastSong: 
                     player.lastSong = player.currentsong()['title']
                     self._standby_time = time.time()+self._on_time
                     self.write_current_song_title(player)
         except Exception as inst:
-            print("Fehler: "+str(type(inst)))
+            print("Error in \"light_on\": "+str(type(inst)))
+    def check_light_for_next_song(self,player):
+        try:
+            if player.status()['state']=="play":
+                if not player.currentsong()['title'] == player.lastSong: 
+                    player.lastSong = player.currentsong()['title']
+                    self._standby_time = time.time()+self._on_time
+                    self.write_current_song_title(player)
+        except Exception as inst:
+            print("Error in \"check_light_for_next_song\": "+str(type(inst)))
         threading.Timer(5,lambda: self.check_light_for_next_song(player)).start()
     def set_on_time(self,t):
         self._on_time = t
@@ -254,19 +263,19 @@ def next(channel):
         time.sleep(0.1)
         stationName = RadioStationName(player.currentsong())
         display.write_line(stationName,1)
-        check_light_for_next_song(player)
+        display.light_on(player)
     if SwitchPlaylist.get_state():
         player.repeat(0)
         player.next()
         time.sleep(0.1)
-        display.check_light_for_next_song()
+        display.light_on(player)
 
 def light(channel):
     time.sleep(0.05)
     if not ButtonLight.get_state():
         #Button not pressed long enoug. So ignore.
         return
-    display.check_light_for_next_song(player,True)
+    display.light_on(player)
     
 #
 #    
