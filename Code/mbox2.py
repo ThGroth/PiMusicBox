@@ -99,11 +99,22 @@ class LCD(object):
             self._lcd.lcd_display_string(text,line)
         self._standby_time = time.time()+self._on_time
     def write_current_song_title(self,player):
-        title = player.currentsong()['title'].split(" - ")
-        title[1]+="[]"
-        interpret = title[1][:title[1].find("[")]
-        album = title[1][title[1].find("[")+1:title[1].find("]")]
-        title = title[0]
+        song = player.currentsong()
+        title = ""
+        interpret = ""
+        album = ""
+        if song.has_key("'title'"):
+            title = song['title']
+        titleAr = title.split(" - ")
+        if len(titleAr)>1:
+            titleAr[1]+="[]"
+            interpret = titleAr[1][:titleAr[1].find("[")]
+            album = titleAr[1][titleAr[1].find("[")+1:titleAr[1].find("]")]
+            title = titleAr[0]
+        if song.has_key("album"):
+            album = song["album"]
+        if song.has_key("interpret"):
+            interpret = song["interpret"]    
         self.write_line(interpret,2)
         self.write_line(title,3)
         self.write_line(album,4)
@@ -168,6 +179,7 @@ player.connect("localhost", 6600)
 #Save the last mode, so after a pause it's clear where to resume.
 player.LastMode = "undef"
 player.lastSong = ""
+player.PlaylistsName = ""
 
 #
 ################## Setup the display #########################
@@ -215,6 +227,7 @@ def ModeChange(channel):
         SM.stop_shutdown()
         if not player.LastMode == "radio":
             print("Reload radio playlist")
+            player.clear()
             player.load("Radio") #SetupRadioPlaylist() at one time before       
         player.LastMode = "radio"
         display.clear_display()
@@ -235,13 +248,25 @@ def ModeChange(channel):
         print("Playlist Mode  ")
         SM.stop_shutdown()
         if not player.LastMode == "playlist":
-            player.load("Radio") #SetupRadioPlaylist() at one time before      
+            Playlists = []
+            for P in player.listplaylists():
+                if not P['playlist']=="Radio": 
+                    Playlists.append(P['playlist'])
+            if len(Playlists)==0:
+                print("Error ModeChange: No Playlists")
+                return
+            player.clear()
+            player.PlaylistsName = Playlists[0]
+            player.PlaylistNumber = 0
+            player.load(player.PlaylistsName) 
         player.LastMode = "playlist"
-        display.write_line("Playlist Mode",1)
+        display.clear_display()
+        display.write_line(player.PlaylistsName,1)
         if player.status()["state"] == "pause":
             player.pause()    # pause is a toggle command
         else:
             player.play()
+        display.write_current_song_title(player)
     else:
         if not player.status()['state'] == "pause":
             print("Pause Mode")
@@ -269,6 +294,23 @@ def next(channel):
         player.next()
         time.sleep(0.1)
         display.light_on(player)
+        time.sleep(1)
+        if not ButtonNextSong.get_state():
+            #realy only next song
+            return
+        #next Album
+        Playlists = []
+        for P in player.listplaylists():
+            if not P['playlist']=="Radio": 
+                Playlists.append(P['playlist'])
+        if len(Playlists)==0:
+            print("Error ModeChange: No Playlists")
+            return
+        player.PlaylistNumber = (player.PlaylistNumber+1) % len(Playlists) 
+        player.clear()
+        player.load(Playlists[player.PlaylistNumber])
+        display.light_on(player)
+
 
 def light(channel):
     time.sleep(0.05)
