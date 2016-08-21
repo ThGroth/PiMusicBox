@@ -53,6 +53,7 @@ En = 0b00000100 # Enable bit
 Rw = 0b00000010 # Read/Write bit
 Rs = 0b00000001 # Register select bit
 
+
 class lcd:
    #initializes objects and lcd
    def __init__(self):
@@ -94,6 +95,22 @@ class lcd:
       else:
          print "Unknown State!"
 
+   #map the unicode chararacter order to Hitachy code         
+   def umlauts(charord):
+      #writen by Thorsten Groth
+      Hi_Code= {228:225,#ä
+      246:239,#ö
+      252:245,#ü
+      196:225,#Ä->ä
+      214:239,#Ö->ö
+      220:245,#Ü->ü
+      223:226,#ß->β
+      233:101,#è->e
+      232:101#é->e
+      }
+      if charord in Hi_Code:
+            return Hi_Code[charord]
+      return charord
    # put string function
    def lcd_display_string(self, string, line):
       if line == 1:
@@ -105,8 +122,8 @@ class lcd:
       if line == 4:
          self.lcd_write(0xD4)
 
-      for char in string:
-         self.lcd_write(ord(char), Rs)
+      for char in string.decode("utf-8"):
+         self.lcd_write(umlauts(ord(char)), Rs)
 
    # clear lcd and set to home
    def lcd_clear(self):
