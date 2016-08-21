@@ -109,7 +109,7 @@ class LCD(object):
             interpret = titleAr[1][:titleAr[1].find("[")]
             album = titleAr[1][titleAr[1].find("[")+1:titleAr[1].find("]")]
             title = titleAr[0]
-        if tite == "":
+        if title == "":
             print("Error in write_current_song_title: Empty title")
         if song.has_key("album"):
             album = song["album"]
