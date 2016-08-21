@@ -57,11 +57,9 @@ class LCD(object):
             threading.Timer(self._standby_time-time.time()+1, self.check_light).start()
     def light_on(self,player):
         try:
-            if player.status()['state']=="play":
-                if not player.currentsong()['title'] == player.lastSong: 
-                    player.lastSong = player.currentsong()['title']
-                    self._standby_time = time.time()+self._on_time
-                    self.write_current_song_title(player)
+            player.lastSong = player.currentsong()['title']
+            self._standby_time = time.time()+self._on_time
+            self.write_current_song_title(player)
         except Exception as inst:
             print("Error in \"light_on\": "+str(type(inst)))
     def check_light_for_next_song(self,player):
@@ -113,8 +111,8 @@ class LCD(object):
             title = titleAr[0]
         if song.has_key("album"):
             album = song["album"]
-        if song.has_key("interpret"):
-            interpret = song["interpret"]    
+        if song.has_key("artist"):
+            interpret = song["artist"]    
         self.write_line(interpret,2)
         self.write_line(title,3)
         self.write_line(album,4)
@@ -308,7 +306,12 @@ def next(channel):
             return
         player.PlaylistNumber = (player.PlaylistNumber+1) % len(Playlists) 
         player.clear()
-        player.load(Playlists[player.PlaylistNumber])
+        player.PlaylistsName = Playlists[player.PlaylistNumber]
+        player.load(player.PlaylistsName)
+        display.clear_display()
+        display.write_line(player.PlaylistsName,1)
+        player.play()
+        time.sleep(0.1)
         display.light_on(player)
 
 
