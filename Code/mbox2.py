@@ -181,12 +181,8 @@ class ShutdownManager(object):
 
 
 Log = Logger('/var/log/PiMusicBox.log')
-#L.set_print_mode()
-<<<<<<< HEAD
-L.set_log_mode()
-=======
+#Log.set_print_mode()
 Log.set_log_mode()
->>>>>>> 5167efa240cd98b16375782f6104f728e3bfc2f0
         
 #
 ################## Setup the GPIOs #########################
