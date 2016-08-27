@@ -13,7 +13,11 @@ import sys
 class Logger(object):
     """docstring for Logger"""
     def __init__(self,fn):
-        self._logfile = open(fn, 'a')
+    	try:
+    		self._logfile = open(fn, 'a')
+    	except OSError as err:
+    		print("Logger: OS error: {0}".format(err))
+    		raise
         self._filename=fn
         self._printmode = False
         sys.stdout = self._logfile
@@ -182,7 +186,7 @@ class ShutdownManager(object):
 
 Log = Logger('/var/log/PiMusicBox.log')
 #Log.set_print_mode()
-Log.set_log_mode()
+Log.set_print_mode()
         
 #
 ################## Setup the GPIOs #########################
