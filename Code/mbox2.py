@@ -13,11 +13,11 @@ import sys
 class Logger(object):
     """docstring for Logger"""
     def __init__(self,fn):
-    	try:
-    		self._logfile = open(fn, 'a')
-    	except OSError as err:
-    		print("Logger: OS error: {0}".format(err))
-    		raise
+        try:
+            self._logfile = open(fn, 'a')
+        except OSError as err:
+            print("Logger: OS error: {0}".format(err))
+            raise
         self._filename=fn
         self._printmode = False
         sys.stdout = self._logfile
@@ -186,7 +186,7 @@ class ShutdownManager(object):
 
 Log = Logger('/var/log/PiMusicBox.log')
 #Log.set_print_mode()
-Log.set_print_mode()
+Log.set_log_mode()
         
 #
 ################## Setup the GPIOs #########################
@@ -249,8 +249,14 @@ def SetupRadioPlaylist():
     player.add('http://mp3channels.webradio.rockantenne.de/rockantenne')
     player.save("Radio")
 
-def RadioStationName(song):
-    return song['file'][song['file'].rfind('/')+1:]
+def RadioStationName(player):
+    try:
+        song = player.currentsong()
+        station = song['file'][song['file'].rfind('/')+1:]
+    except Exception as inst:
+          Log.write("Error in \"RadioStationName\": "+str(type(inst)))
+        station = "radio station"
+    return station
 
 #
 ########## Callback functions for controling the buttons ######
@@ -271,11 +277,12 @@ def ModeChange(channel):
         player.stop()
         player.play()
         time.sleep(0.1)
-        if player.currentsong().has_key('title'):
+        try:
             player.lastSong = player.currentsong()['title']
-        else:
+        except Exception as inst:
+            Log.write("Error in \"ModeChange\": "+str(type(inst)))
             player.lastSong = ""
-        stationName = RadioStationName(player.currentsong())
+        stationName = RadioStationName(player)
         #if len(stationName) <= 20-5:
         #    stationName = stationName+" "*(15-len(stationName))+AktualTime
         display.write_line(stationName,1)
