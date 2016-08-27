@@ -254,7 +254,7 @@ def RadioStationName(player):
         song = player.currentsong()
         station = song['file'][song['file'].rfind('/')+1:]
     except Exception as inst:
-          Log.write("Error in \"RadioStationName\": "+str(type(inst)))
+        Log.write("Error in \"RadioStationName\": "+str(type(inst)))
         station = "radio station"
     return station
 
