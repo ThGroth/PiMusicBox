@@ -22,9 +22,10 @@ class Logger(object):
         self._printmode = False
         sys.stdout = self._logfile
         sys.stderr = self._logfile
-    
+        self.log("Logger started")    	
+
     def log(self,string):
-        self._logfile.write(time.strftime("%d.%m. %H:%M:%S", time.gmtime(time.time()))+string+"\n")
+        self._logfile.write(time.strftime("%d.%m. %H:%M:%S", time.localtime(time.time()))+string+"\n")
         self._logfile.close()
         self._logfile = open(self._filename, 'a')
 
@@ -172,7 +173,7 @@ class ShutdownManager(object):
     def eventually_shutdown(self):
         self._shutdownTimer = threading.Timer(self._standby_time,self.shutdown)
         self._shutdownTimer.start()
-        return time.strftime("%H:%M", time.gmtime(time.time()+self._standby_time)) 
+        return time.strftime("%H:%M", time.localtime(time.time()+self._standby_time)) 
     def shutdown(self):
         player.stop()
         player.close()
