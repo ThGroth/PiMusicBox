@@ -207,7 +207,7 @@ Log.set_log_mode()
 
 try:
     GPIO.setmode(GPIO.BOARD)
-except except Exception as inst:
+except Exception as inst:
     Log.write("Error in Setting up the GPIO trying again soon..."+str(type(inst)))            
     time.sleep(2)
     restartMusicPi()
@@ -228,7 +228,7 @@ ButtonLight = Switch(22)
 # 
 try:
     player = MPDClient()   
-except except Exception as inst:
+except Exception as inst:
     Log.write("Error in Setting up the player trying again soon..."+str(type(inst)))            
     time.sleep(2)
     restartMusicPi()
@@ -251,7 +251,7 @@ Log.write("Player setup succesfull")
 
 try:
     display = LCD();
-except except Exception as inst:
+except Exception as inst:
     Log.write("Error in Setting up the player trying again soon..."+str(type(inst)))            
     time.sleep(2)
     restartMusicPi()
