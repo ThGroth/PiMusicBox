@@ -29,7 +29,6 @@ class Logger(object):
         self._logfile.close()
         self._logfile = open(self._filename, 'a')
 
-
     def write(self,string):
         if self._printmode:
             print(string)
@@ -184,6 +183,17 @@ class ShutdownManager(object):
         #GPIO.cleanup() If so, then the power LED turns out immidiatly 
         #exit(0) 
 
+def restartMusicPi(self):
+    Log.write("Restart requested...")
+    display.turn_off()
+    player.stop()
+    GPIO.cleanup()
+    Log.write(str(os.system("service mpd restart")))
+    prog = "/home/pi/PiMusicBox/Code/mbox2.py"
+    os.execl(prog,prog)    
+
+
+
 
 Log = Logger('/var/log/PiMusicBox.log')
 #Log.set_print_mode()
@@ -193,8 +203,14 @@ Log.set_log_mode()
 ################## Setup the GPIOs #########################
 # 
  
-# Use RPi.GPIO BOARD Layout (wie Pin-numbering)
-GPIO.setmode(GPIO.BOARD)
+# Use RPi.GPIO BOARD Layout (as Pin-numbering)
+
+try:
+    GPIO.setmode(GPIO.BOARD)
+except Exception, e:
+    Log.write("Error in Setting up the GPIO trying again soon..."+str(type(e)))            
+    time.sleep(2)
+    restartMusicPi()
         
 LedOn = LED(13)
 #LedPause = LED(11)
@@ -209,7 +225,13 @@ ButtonLight = Switch(22)
 ################## Setup the player #########################
 # 
 # 
-player = MPDClient()               
+try:
+    player = MPDClient()   
+except Exception, e:
+    Log.write("Error in Setting up the player trying again soon..."+str(type(e)))            
+    time.sleep(2)
+    restartMusicPi()
+
 player.timeout = 10                
 player.idletimeout = None          
 player.connect("localhost", 6600)  
@@ -217,15 +239,24 @@ player.connect("localhost", 6600)
 player.LastMode = "undef"
 player.lastSong = ""
 player.PlaylistsName = ""
+Log.write("Player setup succesfull"+str(type(e)))
+
 
 #
 ################## Setup the display #########################
 # 
 
 
-display = LCD();
-display.check_light_for_next_song(player)
+try:
+    display = LCD();
+except Exception, e:
+    Log.write("Error in Setting up the player trying again soon..."+str(type(e)))            
+    time.sleep(2)
+    restartMusicPi()
 
+
+display.check_light_for_next_song(player)
+Log.write("Display setup succesfull"+str(type(e)))
 #
 ################## Shutdown Manager #########################
 # 
@@ -360,7 +391,6 @@ def next(channel):
         time.sleep(0.1)
         display.light_on(player)
 
-
 def light(channel):
     time.sleep(0.05)
     if not ButtonLight.get_state():
@@ -372,13 +402,7 @@ def light(channel):
         #Button not pressed long enoug for restart
         return
     #Restart the program
-    Log.write("Restart requested...")
-    display.turn_off()
-    player.stop()
-    GPIO.cleanup()
-    Log.write(str(os.system("service mpd restart")))
-    prog = "/home/pi/PiMusicBox/Code/mbox2.py"
-    os.execl(prog,prog)
+    restartMusicPi()
 
     
 #
@@ -386,8 +410,10 @@ def light(channel):
 ########################  Start  ###########################      
 #            
 #                    
-LedOn.turn_on();
+LedOn.turn_on()
 ModeChange(0)
+Log.write("Starting Mode"+str(type(e)))
+
 SwitchPlaylist.set_callback(ModeChange);
 SwitchRadio.set_callback(ModeChange);
 ButtonNextSong.set_callback(next,GPIO.RISING);
