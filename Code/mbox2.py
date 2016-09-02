@@ -20,9 +20,9 @@ class Logger(object):
             raise
         self._filename=fn
         self._printmode = False
-        sys.stdout = self._logfile
-        sys.stderr = self._logfile
-        self.log("Logger started")    	
+        #sys.stdout = self._logfile
+        #sys.stderr = self._logfile
+        self.log("Logger started")      
 
     def log(self,string):
         self._logfile.write(time.strftime("%d.%m. %H:%M:%S", time.localtime(time.time()))+string+"\n")
@@ -207,12 +207,13 @@ Log.set_log_mode()
 
 try:
     GPIO.setmode(GPIO.BOARD)
-except Exception, e:
-    Log.write("Error in Setting up the GPIO trying again soon..."+str(type(e)))            
+except except Exception as inst:
+    Log.write("Error in Setting up the GPIO trying again soon..."+str(type(inst)))            
     time.sleep(2)
     restartMusicPi()
         
 LedOn = LED(13)
+LedOn.turn_off()
 #LedPause = LED(11)
 
 SwitchPlaylist = Switch(16,400)
@@ -227,11 +228,12 @@ ButtonLight = Switch(22)
 # 
 try:
     player = MPDClient()   
-except Exception, e:
-    Log.write("Error in Setting up the player trying again soon..."+str(type(e)))            
+except except Exception as inst:
+    Log.write("Error in Setting up the player trying again soon..."+str(type(inst)))            
     time.sleep(2)
     restartMusicPi()
 
+Log.write("Player setup part 1 succesfull")
 player.timeout = 10                
 player.idletimeout = None          
 player.connect("localhost", 6600)  
@@ -239,7 +241,7 @@ player.connect("localhost", 6600)
 player.LastMode = "undef"
 player.lastSong = ""
 player.PlaylistsName = ""
-Log.write("Player setup succesfull"+str(type(e)))
+Log.write("Player setup succesfull")
 
 
 #
@@ -249,14 +251,14 @@ Log.write("Player setup succesfull"+str(type(e)))
 
 try:
     display = LCD();
-except Exception, e:
-    Log.write("Error in Setting up the player trying again soon..."+str(type(e)))            
+except except Exception as inst:
+    Log.write("Error in Setting up the player trying again soon..."+str(type(inst)))            
     time.sleep(2)
     restartMusicPi()
 
 
 display.check_light_for_next_song(player)
-Log.write("Display setup succesfull"+str(type(e)))
+Log.write("Display setup succesfull")
 #
 ################## Shutdown Manager #########################
 # 
@@ -412,13 +414,12 @@ def light(channel):
 #                    
 LedOn.turn_on()
 ModeChange(0)
-Log.write("Starting Mode"+str(type(e)))
+Log.write("Starting Mode")
 
 SwitchPlaylist.set_callback(ModeChange);
 SwitchRadio.set_callback(ModeChange);
 ButtonNextSong.set_callback(next,GPIO.RISING);
 ButtonLight.set_callback(light,GPIO.RISING);
-
 
 
 
