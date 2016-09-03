@@ -63,16 +63,6 @@ class LCD(object):
             self.write_current_song_title(player)
         except Exception as inst:
             Log.error("Error in \"light_on\": "+str(type(inst)))
-    def check_light_for_next_song(self,player):
-        try:
-            if player.status()['state']=="play":
-                if not player.currentsong()['title'] == player.lastSong: 
-                    player.lastSong = player.currentsong()['title']
-                    self._standby_time = time.time()+self._on_time
-                    self.write_current_song_title(player)
-        except Exception as inst:
-            Log.error("Error in \"check_light_for_next_song\": "+str(type(inst)))
-        threading.Timer(5,lambda: self.check_light_for_next_song(player)).start()
     def set_on_time(self,t):
         self._on_time = t
     def center_text(self,text,offset_line=0):
@@ -145,26 +135,18 @@ class ShutdownManager(object):
         self._shutdownTimer.start()
         return time.strftime("%H:%M", time.localtime(time.time()+self._standby_time)) 
     def shutdown(self):
-        try:
-            player.stop()
-        except Exception as inst:
-            Log.error("Error in \"shutdown\": player.stop()"+str(type(inst)))
-        
-        try:
-            player.close()
-        except Exception as inst:
-            Log.error("Error in \"shutdown\": player.close()"+str(type(inst)))
-        
-        display.turn_off()
-        Log.info("Auschalten..")
-        os.system("halt");
+        StopMusicPi(False)
+        Log.info("Shut Down..")
+        Log.info(os.system("halt"))
         os._exit(0)    
         #GPIO.cleanup() If so, then the power LED turns out immidiatly 
         #exit(0) 
 
 
 def restartMusicPi():
+    global LightCheckerStop
     Log.info("Restart requested...")
+    LightCheckerStop.set()
     display.turn_off()
     try:
         player.stop()
@@ -178,7 +160,9 @@ def restartMusicPi():
 
 
 def StopMusicPi(cleanGPIOs):
+    global LightCheckerStop
     Log.info("stop requested...")
+    LightCheckerStop.set()
     display.turn_off()
     try:
         player.stop()
@@ -295,8 +279,6 @@ except Exception as inst:
     time.sleep(2)
     restartMusicPi()
 
-
-display.check_light_for_next_song(player)
 Log.info("Display setup succesfull")
 #
 ################## Shutdown Manager #########################
@@ -512,7 +494,24 @@ def signal_int_handler(signum, frame):
     Log.info("got SIGINT")
     StopMusicPi(True)
 
+#
+#
+#Setup the New Song detector
+#
+#
+def check_light_for_next_song(display,player,interval,stopEvent):
+    while not stopEvent.is_set(): 
+        try:
+            if player.status()['state']=="play":
+                if not player.currentsong()['title'] == player.lastSong: 
+                    player.lastSong = player.currentsong()['title']
+                    display.write_current_song_title(player)
+        except Exception as inst:
+            Log.error("Error in \"check_light_for_next_song\": "+str(type(inst)))
+        time.sleep(interval)
 
+LightCheckerStop = threading.Event()
+LightChecker =  threading.Thread(target=check_light_for_next_song, args=(display,player,4,LightCheckerStop))
 #
 #    
 ########################  Start  ###########################      
@@ -520,6 +519,7 @@ def signal_int_handler(signum, frame):
 #                    
 LedOn.turn_on()
 ModeChange(0)
+LightChecker.start()
 Log.info("Starting Mode")
 
 SwitchPlaylist.set_callback(ModeChange);
