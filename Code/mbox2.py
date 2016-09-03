@@ -20,8 +20,8 @@ class Logger(object):
             raise
         self._filename=fn
         self._printmode = False
-        sys.stdout = self._logfile
-        sys.stderr = self._logfile
+        #sys.stdout = self._logfile
+        #sys.stderr = self._logfile
         self.log("Logger started")    	
 
     def log(self,string):
@@ -213,6 +213,7 @@ except Exception, e:
     restartMusicPi()
         
 LedOn = LED(13)
+LedOn.turn_off()
 #LedPause = LED(11)
 
 SwitchPlaylist = Switch(16,400)
