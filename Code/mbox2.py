@@ -50,14 +50,12 @@ class LCD(object):
     def __init__(self):
         self._lcd = lcddriver.lcd()
         self._on_time = 1 * 20 # in seconds
-        self._standby_time = time.time()+self._on_time
-        self.check_light();
-    def check_light(self):
-        if time.time()>=self._standby_time:
-            self.standby()
-            threading.Timer(self._on_time-1,self.check_light).start()
-        else:
-            threading.Timer(self._standby_time-time.time()+1, self.check_light).start()
+        self._standbyTimer = threading.Timer(self._on_time,self.standby)
+    def cancel_standby(self):
+        self._standbyTimer.cancel()
+    def eventually_standby(self):
+        self._standbyTimer = threading.Timer(self._on_time,self.standby)
+        self._standbyTimer.start()
     def light_on(self,player):
         try:
             player.lastSong = player.currentsong()['title']
@@ -78,6 +76,7 @@ class LCD(object):
     def set_on_time(self,t):
         self._on_time = t
     def center_text(self,text,offset_line=0):
+        self.cancel_standby()
         if (len(text)/3>20):
             self.write_line(text,1+offset_line)
         elif (len(text)/2)>20:
@@ -90,15 +89,16 @@ class LCD(object):
         else:
             white = (20-len(text))/2
             self.write_line(" "*white+text+" "*white,1+offset_line)
-        self._standby_time = time.time()+self._on_time
+        self.eventually_standby()
     def write_line(self,text,line):
+        self.cancel_standby()
         if (len(text)>20):
             #scrolled text TODO
             self._lcd.lcd_display_string(text[:20],line)
         else:
             text = text+" "*(20-len(text))
             self._lcd.lcd_display_string(text,line)
-        self._standby_time = time.time()+self._on_time
+        self.eventually_standby()
     def write_current_song_title(self,player):
         song = player.currentsong()
         title = ""
@@ -128,6 +128,7 @@ class LCD(object):
     def standby(self):
         self._lcd.lcd_backlight("off")
     def turn_off(self):
+        self._standbyTimer.cancel()
         self.clear_display()
         self._lcd.lcd_backlight("off")
 
@@ -176,7 +177,7 @@ def restartMusicPi():
     os.execl(prog,prog)    
 
 
-def stopMusicPi(cleanGPIOs):
+def StopMusicPi(cleanGPIOs):
     Log.info("stop requested...")
     display.turn_off()
     try:
@@ -234,6 +235,7 @@ logging.config.dictConfig({
     }
 })
 Log = logging.getLogger(__name__)
+Log.info("PiMusicBox started")
 
         
 #
@@ -266,7 +268,7 @@ ButtonLight = Switch(22)
 try:
     player = MPDClient()   
 except Exception as inst:
-    Log.critical("Error in Setting up the player trying again soon..."+str(type(inst)))            
+    Log.exception("Error in Setting up the player trying again soon..."+str(type(inst),))            
     time.sleep(2)
     restartMusicPi()
 
@@ -289,7 +291,7 @@ Log.info("Player setup succesfull")
 try:
     display = LCD();
 except Exception as inst:
-    Log.error("Error in Setting up the player trying again soon..."+str(type(inst)))            
+    Log.exception("Error in Setting up the Display trying again soon..."+str(type(inst)))            
     time.sleep(2)
     restartMusicPi()
 
