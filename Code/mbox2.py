@@ -188,7 +188,7 @@ logging.config.dictConfig({
 
     'formatters': {
         'standard': {
-            'format': '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+            'format': '%(asctime)s %(levelname)s: %(message)s'
         },
         'brief': {
             'format': '%[%(levelname)s]: %(message)s'
