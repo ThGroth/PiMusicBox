@@ -135,9 +135,18 @@ class ShutdownManager(object):
         self._shutdownTimer.start()
         return time.strftime("%H:%M", time.localtime(time.time()+self._standby_time)) 
     def shutdown(self):
-        StopMusicPi(False)
+        global LightCheckerStop
+        Log.info("stop requested...")
+        LightCheckerStop.set()
+        display.turn_off()
+        try:
+            player.stop()
+            player.close()
+        except Exception as inst:
+            Log.error("Error in \"StopMusicPi\": player.close()"+str(type(inst)))   
         Log.info("Shut Down..")
         Log.info(os.system("halt"))
+        Log.info("Exit MusicPi") 
         os._exit(0)    
         #GPIO.cleanup() If so, then the power LED turns out immidiatly 
         #exit(0) 
