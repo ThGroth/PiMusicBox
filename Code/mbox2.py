@@ -192,7 +192,7 @@ class ShutdownManager(object):
         #GPIO.cleanup() If so, then the power LED turns out immidiatly 
         #exit(0) 
 
-def restartMusicPi(self):
+def restartMusicPi():
     Log.write("Restart requested...")
     display.turn_off()
     try:
@@ -205,6 +205,17 @@ def restartMusicPi(self):
     prog = "/home/pi/PiMusicBox/Code/mbox2.py"
     os.execl(prog,prog)    
 
+def stopMusicPi(cleanGPIOs):
+    Log.write("stop requested...")
+    display.turn_off()
+    try:
+        player.stop()
+        player.close()
+    except Exception as inst:
+        Log.write("Error in \"StopMusicPi\": player.close()"+str(type(inst)))   
+    if cleanGPIOs:
+        GPIO.cleanup()
+    os._exit(0)    
 
 
 
@@ -480,8 +491,21 @@ def light(channel):
 
 def signal_term_handler(signal, frame):
     Log.write("got SIGTERM")
-    SM.shutdown()
-    sys.exit(0)   
+    StopMusicPi(false)
+
+def exit_gracefully(signum, frame):
+    signal.signal(signal.SIGINT, original_sigint)
+
+    try:
+        if raw_input("\nReally quit? (y/n)> ").lower().startswith('y'):
+            Log.write("got SIGINT")
+            StopMusicPi(true)
+
+    except KeyboardInterrupt:
+        Log.write("got SIGINT and pressure")
+        StopMusicPi(true)
+    # restore the exit gracefully handler here    
+    signal.signal(signal.SIGINT, exit_gracefully)
 
 #
 #    
@@ -496,9 +520,15 @@ SwitchPlaylist.set_callback(ModeChange);
 SwitchRadio.set_callback(ModeChange);
 ButtonNextSong.set_callback(next,GPIO.RISING);
 ButtonLight.set_callback(light,GPIO.RISING);
+#Handler for kill request
 signal.signal(signal.SIGTERM, signal_term_handler)
+#Handler for CTRL-C request. Store the default one in original_sigint
+original_sigint = signal.getsignal(signal.SIGINT)
+signal.signal(signal.SIGINT, exit_gracefully)
 
-
+while true:
+    sleep(1)
+    pass
 
 
 
