@@ -7,39 +7,9 @@ import lcddriver
 import time
 import os
 import sys
-
-#logfile
-
-class Logger(object):
-    """docstring for Logger"""
-    def __init__(self,fn):
-        try:
-            self._logfile = open(fn, 'a')
-        except OSError as err:
-            print("Logger: OS error: {0}".format(err))
-            raise
-        self._filename=fn
-        self._printmode = False
-        #sys.stdout = self._logfile
-        #sys.stderr = self._logfile
-        self.log("Logger started")    	
-
-    def log(self,string):
-        self._logfile.write(time.strftime("%d.%m. %H:%M:%S", time.localtime(time.time()))+string+"\n")
-        self._logfile.close()
-        self._logfile = open(self._filename, 'a')
-
-    def write(self,string):
-        if self._printmode:
-            print(string)
-            return
-        self.log(string)
-    
-    def set_print_mode(self):
-        self._printmode = True
-
-    def set_log_mode(self):
-        self._printmode = False
+import signal
+import logging
+import logging.config
 
 class LED(object):
     """LED"""
@@ -80,34 +50,23 @@ class LCD(object):
     def __init__(self):
         self._lcd = lcddriver.lcd()
         self._on_time = 1 * 20 # in seconds
-        self._standby_time = time.time()+self._on_time
-        self.check_light();
-    def check_light(self):
-        if time.time()>=self._standby_time:
-            self.standby()
-            threading.Timer(self._on_time-1,self.check_light).start()
-        else:
-            threading.Timer(self._standby_time-time.time()+1, self.check_light).start()
+        self._standbyTimer = threading.Timer(self._on_time,self.standby)
+    def cancel_standby(self):
+        self._standbyTimer.cancel()
+    def eventually_standby(self):
+        self._standbyTimer = threading.Timer(self._on_time,self.standby)
+        self._standbyTimer.start()
     def light_on(self,player):
         try:
             player.lastSong = player.currentsong()['title']
             self._standby_time = time.time()+self._on_time
             self.write_current_song_title(player)
         except Exception as inst:
-            Log.write("Error in \"light_on\": "+str(type(inst)))
-    def check_light_for_next_song(self,player):
-        try:
-            if player.status()['state']=="play":
-                if not player.currentsong()['title'] == player.lastSong: 
-                    player.lastSong = player.currentsong()['title']
-                    self._standby_time = time.time()+self._on_time
-                    self.write_current_song_title(player)
-        except Exception as inst:
-            Log.write("Error in \"check_light_for_next_song\": "+str(type(inst)))
-        threading.Timer(5,lambda: self.check_light_for_next_song(player)).start()
+            Log.error("Error in \"light_on\": "+str(type(inst)))
     def set_on_time(self,t):
         self._on_time = t
     def center_text(self,text,offset_line=0):
+        self.cancel_standby()
         if (len(text)/3>20):
             self.write_line(text,1+offset_line)
         elif (len(text)/2)>20:
@@ -120,15 +79,16 @@ class LCD(object):
         else:
             white = (20-len(text))/2
             self.write_line(" "*white+text+" "*white,1+offset_line)
-        self._standby_time = time.time()+self._on_time
+        self.eventually_standby()
     def write_line(self,text,line):
+        self.cancel_standby()
         if (len(text)>20):
             #scrolled text TODO
             self._lcd.lcd_display_string(text[:20],line)
         else:
             text = text+" "*(20-len(text))
             self._lcd.lcd_display_string(text,line)
-        self._standby_time = time.time()+self._on_time
+        self.eventually_standby()
     def write_current_song_title(self,player):
         song = player.currentsong()
         title = ""
@@ -143,7 +103,7 @@ class LCD(object):
             album = titleAr[1][titleAr[1].find("[")+1:titleAr[1].find("]")]
             title = titleAr[0]
         if title == "":
-            Log.write("Error in write_current_song_title: Empty title")
+            Log.warning("Error in write_current_song_title: Empty title")
         if song.has_key("album"):
             album = song["album"]
         if song.has_key("artist"):
@@ -158,6 +118,7 @@ class LCD(object):
     def standby(self):
         self._lcd.lcd_backlight("off")
     def turn_off(self):
+        self._standbyTimer.cancel()
         self.clear_display()
         self._lcd.lcd_backlight("off")
 
@@ -174,30 +135,101 @@ class ShutdownManager(object):
         self._shutdownTimer.start()
         return time.strftime("%H:%M", time.localtime(time.time()+self._standby_time)) 
     def shutdown(self):
-        player.stop()
-        player.close()
+        global LightCheckerStop
+        Log.info("stop requested...")
+        LightCheckerStop.set()
         display.turn_off()
-        Log.write("Auschalten..")
-        os.system("halt");
+        try:
+            player.stop()
+            player.close()
+        except Exception as inst:
+            Log.error("Error in \"StopMusicPi\": player.close()"+str(type(inst)))   
+        Log.info("Shut Down..")
+        Log.info(os.system("halt"))
+        Log.info("Exit MusicPi") 
         os._exit(0)    
         #GPIO.cleanup() If so, then the power LED turns out immidiatly 
         #exit(0) 
 
-def restartMusicPi(self):
-    Log.write("Restart requested...")
+
+def restartMusicPi():
+    global LightCheckerStop
+    Log.info("Restart requested...")
+    LightCheckerStop.set()
     display.turn_off()
-    player.stop()
+    try:
+        player.stop()
+        player.close()
+    except Exception as inst:
+        Log.error("Error in \"restartMusicPi\": player.close()"+str(type(inst)))   
     GPIO.cleanup()
-    Log.write(str(os.system("service mpd restart")))
+    Log.info(str(os.system("service mpd restart")))
     prog = "/home/pi/PiMusicBox/Code/mbox2.py"
     os.execl(prog,prog)    
 
 
+def StopMusicPi(cleanGPIOs):
+    global LightCheckerStop
+    Log.info("stop requested...")
+    LightCheckerStop.set()
+    display.turn_off()
+    try:
+        player.stop()
+        player.close()
+    except Exception as inst:
+        Log.error("Error in \"StopMusicPi\": player.close()"+str(type(inst)))   
+    if cleanGPIOs:
+        GPIO.cleanup()
+    Log.info("Exit MusicPi")     
+    os._exit(0)    
 
+#
+#
+#Setup the logger
+#
+#
 
-Log = Logger('/var/log/PiMusicBox.log')
-#Log.set_print_mode()
-Log.set_log_mode()
+#logging.basicConfig(filename='/var/log/PiMusicBox.log', level=logging.DEBUG, format='%(asctime)s %(levelname)s: %(message)s')
+logging.config.dictConfig({
+    'version': 1,              
+    'disable_existing_loggers': False,  
+
+    'formatters': {
+        'standard': {
+            'format': '%(asctime)s %(levelname)s: %(message)s'
+        },
+        'brief': {
+            'format': '%(levelname)s: %(message)s'
+        }
+    },
+    'handlers': {
+        'file': {
+            'level':'DEBUG',    
+            'class':'logging.handlers.RotatingFileHandler',
+            'formatter': 'standard',
+            'filename': '/var/log/PiMusicBox.log',
+            'maxBytes': 10240,
+            'backupCount': 3
+        },  
+        'console': {
+            'level':'DEBUG',    
+            'class':'logging.StreamHandler',
+            'formatter': 'brief',
+            'stream'  : 'ext://sys.stdout'
+            
+        }
+    },
+    'loggers': {
+        __name__: {                  
+            'handlers': ['file','console'],        
+            'level': 'DEBUG',  
+            'propagate': True  
+        }
+    }
+})
+Log = logging.getLogger(__name__)
+Log.info("PiMusicBox started")
+
         
 #
 ################## Setup the GPIOs #########################
@@ -207,8 +239,8 @@ Log.set_log_mode()
 
 try:
     GPIO.setmode(GPIO.BOARD)
-except Exception, e:
-    Log.write("Error in Setting up the GPIO trying again soon..."+str(type(e)))            
+except Exception as inst:
+    Log.critical("Error in Setting up the GPIO trying again soon..."+str(type(inst)))            
     time.sleep(2)
     restartMusicPi()
         
@@ -228,11 +260,12 @@ ButtonLight = Switch(22)
 # 
 try:
     player = MPDClient()   
-except Exception, e:
-    Log.write("Error in Setting up the player trying again soon..."+str(type(e)))            
+except Exception as inst:
+    Log.exception("Error in Setting up the player trying again soon..."+str(type(inst),))            
     time.sleep(2)
     restartMusicPi()
 
+Log.info("Player setup part 1 succesfull")
 player.timeout = 10                
 player.idletimeout = None          
 player.connect("localhost", 6600)  
@@ -240,7 +273,7 @@ player.connect("localhost", 6600)
 player.LastMode = "undef"
 player.lastSong = ""
 player.PlaylistsName = ""
-Log.write("Player setup succesfull"+str(type(e)))
+Log.info("Player setup succesfull")
 
 
 #
@@ -250,14 +283,12 @@ Log.write("Player setup succesfull"+str(type(e)))
 
 try:
     display = LCD();
-except Exception, e:
-    Log.write("Error in Setting up the player trying again soon..."+str(type(e)))            
+except Exception as inst:
+    Log.exception("Error in Setting up the Display trying again soon..."+str(type(inst)))            
     time.sleep(2)
     restartMusicPi()
 
-
-display.check_light_for_next_song(player)
-Log.write("Display setup succesfull"+str(type(e)))
+Log.info("Display setup succesfull")
 #
 ################## Shutdown Manager #########################
 # 
@@ -287,7 +318,7 @@ def RadioStationName(player):
         song = player.currentsong()
         station = song['file'][song['file'].rfind('/')+1:]
     except Exception as inst:
-        Log.write("Error in \"RadioStationName\": "+str(type(inst)))
+        Log.error("Error in \"RadioStationName\": "+str(type(inst)))
         station = "radio station"
     return station
 
@@ -298,22 +329,35 @@ def ModeChange(channel):
     time.sleep(0.2)
     AktualTime = time.strftime("%H:%M:%S", time.gmtime(time.time())) 
     if SwitchRadio.get_state():
-        Log.write("Radio Mode")
+        Log.info("Radio Mode")
         SM.stop_shutdown()
         if not player.LastMode == "radio":
-            Log.write("Reload radio playlist")
-            player.clear()
-            player.load("Radio") #SetupRadioPlaylist() at one time before       
+            Log.info("Reload radio playlist")
+            try:
+                player.clear()
+            except Exception as inst:
+                Log.error("Error in \"ModeChange\": player.clear()"+str(type(inst))) 
+            try:
+                player.load("Radio") #SetupRadioPlaylist() at one time before       
+            except Exception as inst:
+                Log.error("Error in \"ModeChange\": player.load(\"Radio\")"+str(type(inst))) 
+            
         player.LastMode = "radio"
         display.clear_display()
         #display.write_line("Radio Mode",1)
-        player.stop()
-        player.play()
+        try:
+           player.stop() 
+        except Exception as inst:
+            Log.error("Error in \"ModeChange\": player.stop()"+str(type(inst))) 
+        try:
+           player.play()
+        except Exception as inst:
+            Log.error("Error in \"ModeChange\": player.play()"+str(type(inst))) 
         time.sleep(0.1)
         try:
             player.lastSong = player.currentsong()['title']
         except Exception as inst:
-            Log.write("Error in \"ModeChange\": "+str(type(inst)))
+            Log.error("Error in \"ModeChange\": "+str(type(inst)))
             player.lastSong = ""
         stationName = RadioStationName(player)
         #if len(stationName) <= 20-5:
@@ -321,15 +365,20 @@ def ModeChange(channel):
         display.write_line(stationName,1)
         display.write_current_song_title(player)
     elif SwitchPlaylist.get_state():
-        Log.write("Playlist Mode  ")
+        Log.info("Playlist Mode  ")
         SM.stop_shutdown()
         if not player.LastMode == "playlist":
             Playlists = []
-            for P in player.listplaylists():
+            try:
+                playerplaylists = player.listplaylists();
+            except Exception as inst:
+                Log.error("Error in \"ModeChange\": player.listplaylists"+str(type(inst)))
+                playerplaylists = [];
+            for P in playerplaylists:
                 if not P['playlist']=="Radio": 
                     Playlists.append(P['playlist'])
             if len(Playlists)==0:
-                Log.write("Error ModeChange: No Playlists")
+                Log.warning("Error ModeChange: No Playlists")
                 return
             player.clear()
             player.PlaylistsName = Playlists[0]
@@ -339,17 +388,32 @@ def ModeChange(channel):
         display.clear_display()
         display.write_line(player.PlaylistsName,1)
         if player.status()["state"] == "pause":
-            player.pause()    # pause is a toggle command
+            try:
+                player.pause()    # pause is a toggle command
+            except Exception as inst:
+                Log.error("Error in \"ModeChange\": player.pause()"+str(type(inst))) 
         else:
-            player.play()
+            try:
+                player.play()
+            except Exception as inst:
+                Log.error("Error in \"ModeChange\": player.play()"+str(type(inst))) 
+        time.sleep(0.1)
         display.write_current_song_title(player)
     else:
-        if not player.status()['state'] == "pause":
-            Log.write("Pause Mode")
+        try:
+            playerstatusstate = player.status()['state']    # pause is a toggle command
+        except Exception as inst:
+            Log.error("Error in \"ModeChange\": player.status()[state]"+str(type(inst))) 
+            playerstatusstate = "pause"
+        if not playerstatusstate == "pause":
+            Log.info("Pause Mode")
             display.center_text("Pause",1)
             display.clear_line(3)
             display.write_line("Ausschalten um "+SM.eventually_shutdown(),4);
-            player.pause()
+            try:
+                player.pause()    # pause is a toggle command
+            except Exception as inst:
+                Log.error("Error in \"ModeChange\": player.pause()"+str(type(inst))) 
 
 def next(channel):
     time.sleep(0.1)
@@ -359,15 +423,27 @@ def next(channel):
     #Action depends on mode
     if SwitchRadio.get_state():
         #next radio station in playlist. If last then back to first. 
-        player.repeat(1)
-        player.next()
+        try:
+            player.repeat(1)
+        except Exception as inst:
+            Log.error("Error in \"next\": player.repeat(1)"+str(type(inst))) 
+        try:
+            player.next()
+        except Exception as inst:
+            Log.error("Error in \"next\": player.next()"+str(type(inst))) 
         time.sleep(0.1)
         stationName = RadioStationName(player.currentsong())
         display.write_line(stationName,1)
         display.light_on(player)
     if SwitchPlaylist.get_state():
-        player.repeat(0)
-        player.next()
+        try:
+            player.repeat(0)
+        except Exception as inst:
+            Log.error("Error in \"next\": player.repeat(1)"+str(type(inst))) 
+        try:
+            player.next()
+        except Exception as inst:
+            Log.error("Error in \"next\": player.next()"+str(type(inst))) 
         time.sleep(0.1)
         display.light_on(player)
         time.sleep(1)
@@ -376,19 +452,33 @@ def next(channel):
             return
         #next Album
         Playlists = []
-        for P in player.listplaylists():
+        try:
+            playerplaylists = player.listplaylists();
+        except Exception as inst:
+            Log.error("Error in \"Next\": player.listplaylists"+str(type(inst)))
+            playerplaylists = [];
+        for P in playerplaylists:
             if not P['playlist']=="Radio": 
                 Playlists.append(P['playlist'])
         if len(Playlists)==0:
-            Log.write("Error ModeChange: No Playlists")
+            Log.warning("Error ModeChange: No Playlists")
             return
         player.PlaylistNumber = (player.PlaylistNumber+1) % len(Playlists) 
-        player.clear()
+        try:
+            player.clear()
+        except Exception as inst:
+            Log.error("Error in \"next\": player.clear()"+str(type(inst))) 
         player.PlaylistsName = Playlists[player.PlaylistNumber]
-        player.load(player.PlaylistsName)
+        try:
+            player.load(player.PlaylistsName)
+        except Exception as inst:
+            Log.error("Error in \"next\": player.load(player.PlaylistsName)"+str(type(inst))) 
         display.clear_display()
         display.write_line(player.PlaylistsName,1)
-        player.play()
+        try:
+            player.play()
+        except Exception as inst:
+            Log.error("Error in \"next\": player.play()"+str(type(inst))) 
         time.sleep(0.1)
         display.light_on(player)
 
@@ -405,7 +495,32 @@ def light(channel):
     #Restart the program
     restartMusicPi()
 
-    
+def signal_term_handler(signal, frame):
+    Log.info("got SIGTERM")
+    StopMusicPi(False)
+
+def signal_int_handler(signum, frame):
+    Log.info("got SIGINT")
+    StopMusicPi(True)
+
+#
+#
+#Setup the New Song detector
+#
+#
+def check_light_for_next_song(display,player,interval,stopEvent):
+    while not stopEvent.is_set(): 
+        try:
+            if player.status()['state']=="play":
+                if not player.currentsong()['title'] == player.lastSong: 
+                    player.lastSong = player.currentsong()['title']
+                    display.write_current_song_title(player)
+        except Exception as inst:
+            Log.error("Error in \"check_light_for_next_song\": "+str(type(inst)))
+        time.sleep(interval)
+
+LightCheckerStop = threading.Event()
+LightChecker =  threading.Thread(target=check_light_for_next_song, args=(display,player,4,LightCheckerStop))
 #
 #    
 ########################  Start  ###########################      
@@ -413,13 +528,21 @@ def light(channel):
 #                    
 LedOn.turn_on()
 ModeChange(0)
-Log.write("Starting Mode"+str(type(e)))
+LightChecker.start()
+Log.info("Starting Mode")
 
 SwitchPlaylist.set_callback(ModeChange);
 SwitchRadio.set_callback(ModeChange);
 ButtonNextSong.set_callback(next,GPIO.RISING);
 ButtonLight.set_callback(light,GPIO.RISING);
+#Handler for kill request
+signal.signal(signal.SIGTERM, signal_term_handler)
+#Handler for CTRL-C request.
+signal.signal(signal.SIGINT, signal_int_handler)
 
+while True:
+    time.sleep(1)
+    pass
 
 
 
