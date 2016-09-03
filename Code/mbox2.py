@@ -7,6 +7,7 @@ import lcddriver
 import time
 import os
 import sys
+import signal
 
 #logfile
 
@@ -174,8 +175,16 @@ class ShutdownManager(object):
         self._shutdownTimer.start()
         return time.strftime("%H:%M", time.localtime(time.time()+self._standby_time)) 
     def shutdown(self):
-        player.stop()
-        player.close()
+        try:
+            player.stop()
+        except Exception as inst:
+            Log.write("Error in \"shutdown\": player.stop()"+str(type(inst)))
+        
+        try:
+            player.close()
+        except Exception as inst:
+            Log.write("Error in \"shutdown\": player.close()"+str(type(inst)))
+        
         display.turn_off()
         Log.write("Auschalten..")
         os.system("halt");
@@ -186,7 +195,11 @@ class ShutdownManager(object):
 def restartMusicPi(self):
     Log.write("Restart requested...")
     display.turn_off()
-    player.stop()
+    try:
+        player.stop()
+        player.close()
+    except Exception as inst:
+        Log.write("Error in \"restartMusicPi\": player.close()"+str(type(inst)))   
     GPIO.cleanup()
     Log.write(str(os.system("service mpd restart")))
     prog = "/home/pi/PiMusicBox/Code/mbox2.py"
@@ -303,13 +316,26 @@ def ModeChange(channel):
         SM.stop_shutdown()
         if not player.LastMode == "radio":
             Log.write("Reload radio playlist")
-            player.clear()
-            player.load("Radio") #SetupRadioPlaylist() at one time before       
+            try:
+                player.clear()
+            except Exception as inst:
+                Log.write("Error in \"ModeChange\": player.clear()"+str(type(inst))) 
+            try:
+                player.load("Radio") #SetupRadioPlaylist() at one time before       
+            except Exception as inst:
+                Log.write("Error in \"ModeChange\": player.load(\"Radio\")"+str(type(inst))) 
+            
         player.LastMode = "radio"
         display.clear_display()
         #display.write_line("Radio Mode",1)
-        player.stop()
-        player.play()
+        try:
+           player.stop() 
+        except Exception as inst:
+            Log.write("Error in \"ModeChange\": player.stop()"+str(type(inst))) 
+        try:
+           player.play()
+        except Exception as inst:
+            Log.write("Error in \"ModeChange\": player.play()"+str(type(inst))) 
         time.sleep(0.1)
         try:
             player.lastSong = player.currentsong()['title']
@@ -326,7 +352,12 @@ def ModeChange(channel):
         SM.stop_shutdown()
         if not player.LastMode == "playlist":
             Playlists = []
-            for P in player.listplaylists():
+            try:
+                playerplaylists = player.listplaylists();
+            except Exception as inst:
+                Log.write("Error in \"ModeChange\": player.listplaylists"+str(type(inst)))
+                playerplaylists = [];
+            for P in playerplaylists:
                 if not P['playlist']=="Radio": 
                     Playlists.append(P['playlist'])
             if len(Playlists)==0:
@@ -340,17 +371,32 @@ def ModeChange(channel):
         display.clear_display()
         display.write_line(player.PlaylistsName,1)
         if player.status()["state"] == "pause":
-            player.pause()    # pause is a toggle command
+            try:
+                player.pause()    # pause is a toggle command
+            except Exception as inst:
+                Log.write("Error in \"ModeChange\": player.pause()"+str(type(inst))) 
         else:
-            player.play()
+            try:
+                player.play()
+            except Exception as inst:
+                Log.write("Error in \"ModeChange\": player.play()"+str(type(inst))) 
+        time.sleep(0.1)
         display.write_current_song_title(player)
     else:
-        if not player.status()['state'] == "pause":
+        try:
+            playerstatusstate = player.status()['state']    # pause is a toggle command
+        except Exception as inst:
+            Log.write("Error in \"ModeChange\": player.status()[state]"+str(type(inst))) 
+            playerstatusstate = "pause"
+        if not playerstatusstate == "pause":
             Log.write("Pause Mode")
             display.center_text("Pause",1)
             display.clear_line(3)
             display.write_line("Ausschalten um "+SM.eventually_shutdown(),4);
-            player.pause()
+            try:
+                player.pause()    # pause is a toggle command
+            except Exception as inst:
+                Log.write("Error in \"ModeChange\": player.pause()"+str(type(inst))) 
 
 def next(channel):
     time.sleep(0.1)
@@ -360,15 +406,27 @@ def next(channel):
     #Action depends on mode
     if SwitchRadio.get_state():
         #next radio station in playlist. If last then back to first. 
-        player.repeat(1)
-        player.next()
+        try:
+            player.repeat(1)
+        except Exception as inst:
+            Log.write("Error in \"next\": player.repeat(1)"+str(type(inst))) 
+        try:
+            player.next()
+        except Exception as inst:
+            Log.write("Error in \"next\": player.next()"+str(type(inst))) 
         time.sleep(0.1)
         stationName = RadioStationName(player.currentsong())
         display.write_line(stationName,1)
         display.light_on(player)
     if SwitchPlaylist.get_state():
-        player.repeat(0)
-        player.next()
+        try:
+            player.repeat(0)
+        except Exception as inst:
+            Log.write("Error in \"next\": player.repeat(1)"+str(type(inst))) 
+        try:
+            player.next()
+        except Exception as inst:
+            Log.write("Error in \"next\": player.next()"+str(type(inst))) 
         time.sleep(0.1)
         display.light_on(player)
         time.sleep(1)
@@ -377,19 +435,33 @@ def next(channel):
             return
         #next Album
         Playlists = []
-        for P in player.listplaylists():
+        try:
+            playerplaylists = player.listplaylists();
+        except Exception as inst:
+            Log.write("Error in \"Next\": player.listplaylists"+str(type(inst)))
+            playerplaylists = [];
+        for P in playerplaylists:
             if not P['playlist']=="Radio": 
                 Playlists.append(P['playlist'])
         if len(Playlists)==0:
             Log.write("Error ModeChange: No Playlists")
             return
         player.PlaylistNumber = (player.PlaylistNumber+1) % len(Playlists) 
-        player.clear()
+        try:
+            player.clear()
+        except Exception as inst:
+            Log.write("Error in \"next\": player.clear()"+str(type(inst))) 
         player.PlaylistsName = Playlists[player.PlaylistNumber]
-        player.load(player.PlaylistsName)
+        try:
+            player.load(player.PlaylistsName)
+        except Exception as inst:
+            Log.write("Error in \"next\": player.load(player.PlaylistsName)"+str(type(inst))) 
         display.clear_display()
         display.write_line(player.PlaylistsName,1)
-        player.play()
+        try:
+            player.play()
+        except Exception as inst:
+            Log.write("Error in \"next\": player.play()"+str(type(inst))) 
         time.sleep(0.1)
         display.light_on(player)
 
@@ -406,7 +478,11 @@ def light(channel):
     #Restart the program
     restartMusicPi()
 
-    
+def signal_term_handler(signal, frame):
+    Log.write("got SIGTERM")
+    SM.shutdown()
+    sys.exit(0)   
+
 #
 #    
 ########################  Start  ###########################      
@@ -420,6 +496,9 @@ SwitchPlaylist.set_callback(ModeChange);
 SwitchRadio.set_callback(ModeChange);
 ButtonNextSong.set_callback(next,GPIO.RISING);
 ButtonLight.set_callback(light,GPIO.RISING);
+signal.signal(signal.SIGTERM, signal_term_handler)
+
+
 
 
 
