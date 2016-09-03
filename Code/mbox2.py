@@ -186,6 +186,7 @@ def stopMusicPi(cleanGPIOs):
         Log.error("Error in \"StopMusicPi\": player.close()"+str(type(inst)))   
     if cleanGPIOs:
         GPIO.cleanup()
+    Log.info("Exit MusicPi")     
     os._exit(0)    
 
 #
@@ -204,7 +205,7 @@ logging.config.dictConfig({
             'format': '%(asctime)s %(levelname)s: %(message)s'
         },
         'brief': {
-            'format': '%[%(levelname)s]: %(message)s'
+            'format': '%(levelname)s: %(message)s'
         }
     },
     'handlers': {
@@ -213,7 +214,7 @@ logging.config.dictConfig({
             'class':'logging.handlers.RotatingFileHandler',
             'formatter': 'standard',
             'filename': '/var/log/PiMusicBox.log',
-            'maxBytes': 1024,
+            'maxBytes': 10240,
             'backupCount': 3
         },  
         'console': {
@@ -503,21 +504,11 @@ def light(channel):
 
 def signal_term_handler(signal, frame):
     Log.info("got SIGTERM")
-    StopMusicPi(false)
+    StopMusicPi(False)
 
-def exit_gracefully(signum, frame):
-    signal.signal(signal.SIGINT, original_sigint)
-
-    try:
-        if raw_input("\nReally quit? (y/n)> ").lower().startswith('y'):
-            Log.info("got SIGINT")
-            StopMusicPi(true)
-
-    except KeyboardInterrupt:
-        Log.info("got SIGINT and pressure")
-        StopMusicPi(true)
-    # restore the exit gracefully handler here    
-    signal.signal(signal.SIGINT, exit_gracefully)
+def signal_int_handler(signum, frame):
+    Log.info("got SIGINT")
+    StopMusicPi(True)
 
 
 #
@@ -535,12 +526,11 @@ ButtonNextSong.set_callback(next,GPIO.RISING);
 ButtonLight.set_callback(light,GPIO.RISING);
 #Handler for kill request
 signal.signal(signal.SIGTERM, signal_term_handler)
-#Handler for CTRL-C request. Store the default one in original_sigint
-original_sigint = signal.getsignal(signal.SIGINT)
-signal.signal(signal.SIGINT, exit_gracefully)
+#Handler for CTRL-C request.
+signal.signal(signal.SIGINT, signal_int_handler)
 
-while true:
-    sleep(1)
+while True:
+    time.sleep(1)
     pass
 
 
