@@ -294,7 +294,7 @@ Log.info("Display setup succesfull")
 # 
 
 
-SM = ShutdownManager(player,display,10*60)
+SM = ShutdownManager(player,display,2*60)
 
 
 #
@@ -409,7 +409,8 @@ def ModeChange(channel):
             Log.info("Pause Mode")
             display.center_text("Pause",1)
             display.clear_line(3)
-            display.write_line("Ausschalten um "+SM.eventually_shutdown(),4);
+            display.clear_line(4)
+            #display.write_line("Ausschalten um "+SM.eventually_shutdown(),4);
             try:
                 player.pause()    # pause is a toggle command
             except Exception as inst:
@@ -435,7 +436,7 @@ def next(channel):
         stationName = RadioStationName(player.currentsong())
         display.write_line(stationName,1)
         display.light_on(player)
-    if SwitchPlaylist.get_state():
+    elif SwitchPlaylist.get_state():
         try:
             player.repeat(0)
         except Exception as inst:
@@ -481,6 +482,9 @@ def next(channel):
             Log.error("Error in \"next\": player.play()"+str(type(inst))) 
         time.sleep(0.1)
         display.light_on(player)
+    else: #So pause mode
+    	time.sleep(3)
+    	display.write_line("Ausschalten um "+SM.eventually_shutdown(),4);
 
 def light(channel):
     time.sleep(0.05)
@@ -527,6 +531,7 @@ LightChecker =  threading.Thread(target=check_light_for_next_song, args=(display
 #            
 #                    
 LedOn.turn_on()
+time.sleep(2)
 ModeChange(0)
 LightChecker.start()
 Log.info("Starting Mode")
